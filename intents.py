@@ -17,6 +17,7 @@ import json
 
 def generate_questions(df):
   questions = []
+  labels = []
   intents = {'intents':[]}
   for index, row in df.iterrows():
     document = row[-1]
@@ -29,6 +30,7 @@ def generate_questions(df):
       }
       q = qe.predict_boolq(payload)['Boolean Questions']
       temp_questions.extend(q)
+    labels.extend([index]*len(temp_questions))
     temp_intent['tag'] = index
     temp_intent['responses'] = temp 
     intents['intents'].append(temp_intent)
@@ -36,9 +38,9 @@ def generate_questions(df):
   with open('intents.json', 'w+') as f:
     intents = json.dumps(intents)
     f.write(intents)
-  with open('questions.json', 'w+') as f:
-    questions = json.dumps({'questions':questions})
+  with open('df.json', 'w+') as f:
+    questions = json.dumps({'question':questions,'label':labels})
     f.write(questions)
   return intents, questions
 
-generate_questions(unique_text_df)
+x = generate_questions(unique_text_df)
