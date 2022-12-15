@@ -1,2 +1,4 @@
 pandas
 BeautifulSoup4
+git+https://github.com/ramsrigouthamg/Questgen.ai
+git+https://github.com/boudinfl/pke.git@69337af9f9e72a25af6d7991eaa9869f1322dd72
