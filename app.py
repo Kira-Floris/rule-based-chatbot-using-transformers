@@ -76,14 +76,13 @@ class BERT_Arch(nn.Module):
     return x
 
 # load model with cache
-model_path = 'files/model.pth'
-model = BERT_Arch()
-st.session_state['model'] = model.load(torch.load_state_dict(model_path))
+model_path = 'model.pth'
+st.session_state['model'] = torch.load(model_path)
 
 
 # prediction function
 class Prediction:
-    def __init__(self, model, tokenizer):
+    def __init__(self, model=st.session_state['model'], tokenizer=st.session_state['tokenizer']):
         self.model = model
         self.model_eval = self.model.eval()
         self.tokenizer = tokenizer
@@ -119,9 +118,10 @@ class Prediction:
             for i in st.session_state['intents']['intents']:
                 if i['tag'] == intent:
                     result = i['responses']
+                    link = i['tag']
                     break
-            return result
-        return get_response(intent)
+            return result, link
+        return get_response(intent) 
         
 
 # verify answer
@@ -182,10 +182,11 @@ user_text = get_text()
 
 if user_text:
     trans = Translation(user_text)
+    prediction = Prediction()
     user_text_translated = trans.encode()
     
-    bot_answer = ''
-    bot_text_translated = trans.decode('my name is barry allen, i am the fastest man alive','www.google.com')
+    bot_answer = prediction(user_text_translated)
+    bot_text_translated = trans.decode(bot_answer[0],bot_answer[1])
     
     st.session_state.past.append(user_text)
     st.session_state.generated.append(bot_text_translated)

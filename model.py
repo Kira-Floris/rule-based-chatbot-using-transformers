@@ -170,13 +170,10 @@ for epoch in range(epochs):
 print(f'\nTraining Loss: {train_loss:.3f}')
 
 model_path = 'model.pth'
-torch.save(model.state_dict(), model_path)
-
-#Later to restore:
-model.load_state_dict(torch.load(model_path))
-print(model.eval())
+torch.save(model, model_path)
 
 import random
+
 def get_prediction(str):
  str = re.sub(r'[^a-zA-Z ]+', '', str)
  test_text = [str]
