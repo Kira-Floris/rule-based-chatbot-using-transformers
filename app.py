@@ -84,6 +84,11 @@ class BERT_Arch(nn.Module):
 model_path = 'model.pth'
 st.session_state['model'] = torch.load(model_path)
 
+# label encoder
+questions = pd.read_csv('questions.csv')
+le = LabelEncoder()
+questions['label'] = le.fit_transform(questions['label'])
+
 
 # prediction function
 class Prediction:
