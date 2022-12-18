@@ -36,7 +36,7 @@ st.session_state['bert'] = RobertaModel.from_pretrained('roberta-base')
 le = LabelEncoder()
 
 # sequence length
-max_seq_len = 256
+max_seq_len = 16
 
 # load intents.json with cache
 f = open('intents.json')
