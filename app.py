@@ -1,4 +1,8 @@
 # %%writefile app.py
+# setup
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 import streamlit as st
 from streamlit_chat import message
 import detectlanguage
@@ -12,6 +16,7 @@ import numpy as np
 import pandas as pd
 import json
 from transformers import RobertaTokenizer, RobertaModel
+import re
 
 # tools setup
 # setup detect language api keys
@@ -21,7 +26,7 @@ detectlanguage.configuration.api_key = '7a1c7069f905116a159438796c09db8e'
 st.session_state['sbert_model'] = SentenceTransformer('all-MiniLM-L6-v2')
 
 # device setup
-st.session_state['device'] = torch.device('cpu')
+st.session_state['device'] = torch.device('cuda')
 
 # bert and tokenizer setup
 st.session_state['tokenizer'] = RobertaTokenizer.from_pretrained('roberta-base')
