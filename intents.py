@@ -1,46 +1,69 @@
-import pandas as pd
-import numpy as np
-
-df = pd.read_csv('https://raw.githubusercontent.com/Kira-Floris/chatbot-hackathon/master/data.csv')
-
-text_df = df[df['Document'].apply(lambda x: len(x)>100)]
-
-unique_text_df = text_df.drop_duplicates(subset='Document', keep='last')
-
+# quesgen setup and nltk
 import nltk
 nltk.download('stopwords')
 from Questgen import main
+import pandas as pd
+import json
 
 qe = main.BoolQGen()
 
-import json
+# quesgen
+def questgen_generate(answer, n=2, qe=qe):
+  payload = {
+      'input_text':str(answer)
+  }
+  output = qe.predict_boolq(payload)
+  return output['Boolean Questions'][:n]
 
-def generate_questions(df):
-  questions = []
-  labels = []
-  intents = {'intents':[]}
+import json
+import pandas as pd
+
+question = """Guide me to {}?
+Where do you get {}?
+Where can I find information about {}?
+What is the link to the {}?
+How do you get {}?
+What can you tell me about {}?"""
+
+def generate_intents_and_df(df, 
+                            qe_n=45, 
+                            intents_json='intents.json', 
+                            questions_df='questions.csv'):
+  
+  # generate intents
+  intents = {
+      'intents':[]
+  }
+  questions_df_ls = [] 
+  labels_df_ls = []
   for index, row in df.iterrows():
-    document = row[-1]
-    temp_intent = {}
-    temp = document.split('.')
-    temp_questions = []
-    for item in temp:
-      payload = {
-        'input_text':text
-      }
-      q = qe.predict_boolq(payload)['Boolean Questions']
-      temp_questions.extend(q)
-    labels.extend([index]*len(temp_questions))
-    temp_intent['tag'] = index
-    temp_intent['responses'] = temp 
-    intents['intents'].append(temp_intent)
-    questions.extend(temp_questions)
-  with open('intents.json', 'w+') as f:
+    intent = {}
+    intent['tag'] = row[1]
+    intent['response'] = row[0]
+    questions = []
+    for i in range(len(question.split('\n'))):
+      questions.append(question.split('\n')[i].format(intent['response']))
+    # generate more questions using questgen
+    # string longer than 45 brings accurate questions
+    if len(str(intent['tag']))>qe_n:
+      questions.extend(questgen_generate(intent['tag']))
+    else:
+      pass
+    intents['intents'].append(intent)
+    labels_df_ls.extend([intent['tag']] * len(questions))
+    questions_df_ls.extend(questions)
+
+  # save intents into json file
+  with open(intents_json, 'w+') as f:
     intents = json.dumps(intents)
     f.write(intents)
-  with open('df.json', 'w+') as f:
-    questions = json.dumps({'question':questions,'label':labels})
-    f.write(questions)
-  return intents, questions
+  # save questions and intent tag as labels into csv file 
+  df = pd.DataFrame()
+  df['text'] = questions_df_ls
+  df['label'] = labels_df_ls
+  df.to_csv(questions_df)
 
-x = generate_questions(unique_text_df)
+  return intents, df
+
+df = pd.read_csv('data_titles.csv')
+intents, questions = generate_intents_and_df(df)
