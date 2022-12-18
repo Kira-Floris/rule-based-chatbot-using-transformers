@@ -17,6 +17,7 @@ import pandas as pd
 import json
 from transformers import RobertaTokenizer, RobertaModel
 import re
+import requests
 
 # tools setup
 # setup detect language api keys
@@ -24,23 +25,6 @@ detectlanguage.configuration.api_key = '7a1c7069f905116a159438796c09db8e'
 
 # setup sbert model
 st.session_state['sbert_model'] = SentenceTransformer('all-MiniLM-L6-v2')
-
-# device setup
-st.session_state['device'] = torch.device('cuda')
-
-# bert and tokenizer setup
-st.session_state['tokenizer'] = RobertaTokenizer.from_pretrained('roberta-base')
-st.session_state['bert'] = RobertaModel.from_pretrained('roberta-base') 
-
-# setup LabelEncoder
-le = LabelEncoder()
-
-# sequence length
-max_seq_len = 16
-
-# load intents.json with cache
-f = open('intents.json')
-st.session_state['intents'] = json.load(f)
 
 # streamlit setup
 st.set_page_config(
@@ -54,85 +38,6 @@ if 'generated' not in st.session_state:
 if 'past' not in st.session_state:
     st.session_state['past'] = []
     
-
-# model class
-# model
-class BERT_Arch(nn.Module):
-  def __init__(self, bert=st.session_state['bert'], dropout=0.2, hl1=768, hl2=512, hl3=256, out=len(st.session_state['intents']['intents'])):
-    super(BERT_Arch, self).__init__()
-    self.bert = bert
-    self.dropout = nn.Dropout(dropout)
-    self.relu = nn.ReLU()
-    self.fc1 = nn.Linear(hl1, hl2)
-    self.fc2 = nn.Linear(hl2, hl3)
-    self.fc4 = nn.Linear(hl3, out)
-    self.softmax = nn.LogSoftmax(dim=1)
-
-  def forward(self, sent_id, mask):
-    cls_hs = self.bert(sent_id, attention_mask=mask)[0][:,0]
-    x = self.fc1(cls_hs)
-    x = self.relu(x)
-    x = self.dropout(x)
-    x = self.fc2(x)
-    x = self.relu(x)
-    x = self.dropout(x)
-    x = self.fc3(x)
-    x = self.softmax(x)
-    return x
-
-# load model with cache
-model_path = 'model.pth'
-st.session_state['model'] = torch.load(model_path)
-
-# label encoder
-questions = pd.read_csv('questions.csv')
-le = LabelEncoder()
-questions['label'] = le.fit_transform(questions['label'])
-
-
-# prediction function
-class Prediction:
-    def __init__(self, model=st.session_state['model'], tokenizer=st.session_state['tokenizer']):
-        self.model = model
-        self.model_eval = self.model.eval()
-        self.tokenizer = tokenizer
-    
-    def __call__(self, text):
-        text = re.sub(r'[^a-zA-Z ]+', '', text)
-        test_text = [text]
-        
-        tokens_test_data = self.tokenizer(
-                test_text,
-                max_length = max_seq_len,
-                pad_to_max_length=True,
-                truncation=True,
-                return_token_type_ids=False
-            )
-        
-        test_seq = torch.tensor(tokens_test_data['input_ids'])
-        test_mask = torch.tensor(tokens_test_data['attention_mask'])
-        
-        preds = None
-        with torch.no_grad():
-            preds = self.model(
-                test_seq.to(
-                    st.session_state['device']), 
-                test_mask.to(st.session_state['device'])
-                )
-        preds = preds.detach().cpu().numpy()
-        preds = np.argmax(preds, axis = 1)
-        # print('Intent Identified: ', le.inverse_transform(preds)[0])
-        intent = le.inverse_transform(preds)[0]
-        
-        def get_response(intent):
-            for i in st.session_state['intents']['intents']:
-                if i['tag'] == intent:
-                    result = i['responses']
-                    link = i['tag']
-                    break
-            return result, link
-        return get_response(intent) 
-        
 
 # verify answer
 def verify_answer(question, answer):
@@ -188,14 +93,25 @@ def get_text():
     user_text = st.text_input('You: ', placeholder='Message', key='input')
     return user_text
 
+def get_response(text, link):
+    obj = {'text':str(text)}
+    try:
+        ans = requests.post(link, json=obj)
+        response = json.loads(ans.text)
+        return response['link'], response['title']
+    except Exception as err:
+        st.write(err)
+        return
+
 user_text = get_text()
 
 if user_text:
     trans = Translation(user_text)
-    prediction = Prediction()
     user_text_translated = trans.encode()
+    st.write(user_text_translated)
     
-    bot_answer = prediction(user_text_translated)
+    bot_answer = get_response(user_text_translated, 'http://40d5-35-229-75-39.ngrok.io/')
+    st.write(bot_answer)
     bot_text_translated = trans.decode(bot_answer[0],bot_answer[1])
     
     st.session_state.past.append(user_text)
